@@ -1,14 +1,59 @@
-1. Stocks selection, select lists of tickers, ideally by sector etc.
-2. Data loading and storage, only recent data will be downloaded.
-3. Data validation checking, check for strange values, missing last data, enough data found.
-4. Data fixing, interpolation, outlier remotion, or tickers remotion directly.
-5. HyperParameters search and tuning, storing this information.
-6. Final training
-7. Forecasting
-8. Tickers selection
-9. Portfolio balancing
-10. Actual portfolio differences.
-11. Storing actual portfolio after buy/sell session.
+# 🧠 OpenQuantKit
 
-Considerations:
-Should I do backtesting?
+**OpenQuantKit** is a modular, open-source pipeline for quantitative stock analysis and portfolio management. Designed with notebooks in mind, it enables a fully automated and reproducible workflow from ticker selection to portfolio rebalancing.
+
+---
+
+## 🚀 Features
+
+1. **Input Tickers **
+   - Provided lists of user selected tickers by sector, index, or custom criteria.
+
+2. **Efficient Data Loading**
+   - Download and store only the most recent data.
+   - Avoid redundant downloads to optimize performance.
+
+3. **Data Validation**
+   - Check for missing or anomalous values.
+   - Ensure recent data is present and there's enough historical context.
+
+4. **Data Fixing**
+   - Handle missing data with interpolation.
+   - Remove or repair outliers.
+   - Drop problematic tickers if necessary.
+
+5. **Hyperparameter Search & Tuning**
+   - Automated hyperparameter optimization for your models.
+   - Store configurations and results for reproducibility.
+
+6. **Final Model Training**
+   - Train forecasting models using cleaned and validated data.
+
+7. **Forecasting**
+   - Predict future price trends or indicators to guide allocation.
+
+8. **Secondary Ticker Selection**
+   - Choose the best-performing or most promising assets post-forecast.
+
+9. **Portfolio Balancing**
+   - Rebalance portfolio weights based on model outputs.
+
+10. **Portfolio Difference Analysis**
+    - Compare current vs. target portfolio positions.
+
+11. **Trade Logging**
+    - Store actual buy/sell decisions and portfolio state after execution.
+
+---
+
+
+**💡 Tip:** Consider integrating a backtesting module as a future extension using tools like `backtrader`, `bt`, or `quantstats`.
+
+---
+
+---
+
+## 📄 License
+
+Open source under the [MIT License](LICENSE).
+
