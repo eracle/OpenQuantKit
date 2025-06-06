@@ -4,21 +4,34 @@ app = marimo.App()
 
 @app.cell
 def _():
-    import pandas as pd
-    import numpy as np
-    return pd, np
+    from importlib import util
+    from pathlib import Path
+    import sys
+    return util, Path, sys
 
 @app.cell
-def _(pd, np):
-    dates = pd.date_range('2023-01-01', periods=100)
-    data = np.random.randn(100, 3).cumsum(axis=0)
-    df = pd.DataFrame(data, index=dates, columns=['AAPL', 'MSFT', 'GOOGL'])
-    df
-    return df
+def _(util, Path, sys):
+    config_path = Path(__file__).with_name("config.py")
+    if not config_path.exists():
+        raise FileNotFoundError(
+            "config.py not found. Copy config.template.py to config.py and populate your ticker lists."
+        )
+    spec = util.spec_from_file_location("config", config_path)
+    config = util.module_from_spec(spec)
+    sys.modules["config"] = config
+    spec.loader.exec_module(config)
+    return config
 
 @app.cell
-def _(df):
-    df.plot(title='Sample Prices')
+def _(config):
+    ticker_groups = getattr(config, "TICKER_GROUPS", None)
+    if ticker_groups is None:
+        raise AttributeError("TICKER_GROUPS not defined in config.py")
+    print("Loaded ticker lists:")
+    for name, tickers in ticker_groups.items():
+        print(f"{name}: {tickers}")
+    return ticker_groups
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()
+
