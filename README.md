@@ -6,7 +6,7 @@
 
 ## 🚀 Features
 
-1. **Input Tickers **
+1. **Input Tickers**
    - Provided lists of user selected tickers by sector, index, or custom criteria.
 
 2. **Efficient Data Loading**
