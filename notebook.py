@@ -32,6 +32,49 @@ def _(config):
         print(f"{name}: {tickers}")
     return ticker_groups
 
+@app.cell
+def _(ticker_groups):
+    """Select tickers from predefined groups or add your own."""
+
+    import marimo as mo
+
+    group_select = mo.ui.multiselect(
+        options=list(ticker_groups.keys()),
+        label="Select ticker groups",
+    )
+
+    custom_input = mo.ui.text(
+        label="Additional tickers (comma separated)",
+        value="",
+    )
+
+    def _combine(groups: list[str], custom: str) -> list[str]:
+        tickers = []
+        for group in groups:
+            tickers.extend(ticker_groups.get(group, []))
+        if custom:
+            tickers.extend(
+                [t.strip().upper() for t in custom.split(",") if t.strip()]
+            )
+        seen = set()
+        deduped = []
+        for ticker in tickers:
+            if ticker not in seen:
+                deduped.append(ticker)
+                seen.add(ticker)
+        return deduped
+
+    selected_tickers = mo.compute(_combine, group_select, custom_input)
+
+    mo.vstack([
+        group_select,
+        custom_input,
+        mo.md("**Selected tickers**"),
+        selected_tickers,
+    ])
+
+    return selected_tickers
+
 if __name__ == "__main__":
     app.run()
 
