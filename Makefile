@@ -16,3 +16,4 @@ run:  ## executes the notebook locally
 
 compose: ## executes the notebook on docker
 	docker compose -f local.yml up --build
+
