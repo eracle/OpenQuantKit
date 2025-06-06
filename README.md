@@ -1,6 +1,6 @@
 # 🧠 OpenQuantKit
 
-**OpenQuantKit** is a modular, open-source pipeline for quantitative stock analysis and portfolio management. Designed with notebooks in mind, it enables a fully automated and reproducible workflow from ticker selection to portfolio rebalancing.
+**OpenQuantKit** is an open-source pipeline for quantitative stock analysis and portfolio management. Designed with notebooks in mind, it enables a fully automated and reproducible workflow from ticker selection to portfolio rebalancing.
 
 ---
 
@@ -47,13 +47,4 @@
 ---
 
 
-**💡 Tip:** Consider integrating a backtesting module as a future extension using tools like `backtrader`, `bt`, or `quantstats`.
-
----
-
----
-
-## 📄 License
-
-Open source under the [MIT License](LICENSE).
 
