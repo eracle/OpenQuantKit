@@ -48,3 +48,22 @@
 
 
 
+
+## 🚀 Quickstart
+
+To edit the example marimo notebook using Docker Compose and the `local.yml` file:
+
+```bash
+make compose
+```
+
+Then open <http://localhost:8888> in your browser.
+
+Or to use a local virtual environment:
+
+```bash
+make run
+```
+
+This will start the marimo server and open the `notebook.py` app.
+
