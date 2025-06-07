@@ -10,5 +10,7 @@ venv: ## init virtual environment locally
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -r requirements.txt
 
-run: ## executes the notebook on docker
+run: ## launch notebook using local venv
+	./init.sh
+compose: ## executes the notebook on docker
 	docker compose -f local.yml up --build
