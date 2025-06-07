@@ -67,3 +67,21 @@ make run
 
 This will start the marimo server and open the `notebook.py` app.
 
+
+## \ud83d\udd27 Configuration
+
+Copy the configuration template and customize ticker groups:
+
+```bash
+cp oqk/config.template.py config.py
+```
+
+Edit `config.py` with your desired tickers.
+
+## \ud83d\udd2e Tests
+
+Run the unit tests with:
+
+```bash
+pytest
+```
