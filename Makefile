@@ -10,3 +10,7 @@ run: ## launch notebook using local venv
 
 compose: ## executes the notebook on docker
 	docker compose -f local.yml up --build
+
+test: ## run tests
+	docker compose -f local.yml run --remove-orphans marimo py.test -vv --cache-clear
+

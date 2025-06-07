@@ -12,7 +12,7 @@ These instructions apply to the entire repository.
 - After formatting, run `black --check` on the changed files to verify.
 
 ## Programmatic Checks
-- There are currently no automated tests.
+- Tests are executed using the command: make test
 - If Python files were changed, ensure the formatter check passes before committing.
 
 ## Pull Request Instructions
