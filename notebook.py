@@ -14,7 +14,7 @@ def _(util, Path, sys):
     config_path = Path(__file__).with_name("config.py")
     if not config_path.exists():
         raise FileNotFoundError(
-            "config.py not found. Copy config.template.py to config.py and populate your ticker lists."
+            "config.py not found. Copy oqk/config.template.py to config.py and populate your ticker lists."
         )
     spec = util.spec_from_file_location("config", config_path)
     config = util.module_from_spec(spec)
