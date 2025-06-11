@@ -9,3 +9,4 @@ pytest
 yfinance
 tqdm
 duckdb
+pyarrow

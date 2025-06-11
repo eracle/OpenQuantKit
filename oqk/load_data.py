@@ -41,59 +41,74 @@ def _():
     # Usage
     tickers = get_all_tickers()#[:2]
     tickers
-    return pd, tickers
+    return os, pd, tickers
 
 
 @app.cell
-def _(pd, tickers):
+def _():
+    try:
+        import pyarrow.parquet
+    except ImportError:
+        raise ImportError(
+            "❌ Missing dependency: `pyarrow` is required to read/write Parquet files.\n"
+            "💡 Install it with:\n"
+            "   pip install pyarrow\n"
+            "   or\n"
+            "   conda install pyarrow -c conda-forge"
+        )
+
+    return
+
+
+@app.cell
+def _(os, pd, tickers):
     from datetime import timedelta
     import yfinance as yf
-    import duckdb
     from tqdm.notebook import tqdm
 
 
-    db_path = "stock_data.duckdb"
+    parquet_dir = "parquet_cache"
+    os.makedirs(parquet_dir, exist_ok=True)
 
-    conn = duckdb.connect(db_path)
-
-    for ticker in tqdm(tickers, desc="Updating Close Prices"):
+    for ticker in tqdm(tickers, desc="Fetching to Parquet"):
         try:
-            # Step 1: Get last date from DB if exists
-            try:
-                result = conn.execute(f"SELECT MAX(Date) FROM '{ticker}'").fetchone()
-                start_date = result[0] + timedelta(days=1) if result and result[0] else None
-            except Exception:
-                start_date = None  # Table doesn't exist yet
+            path = f"{parquet_dir}/{ticker}.parquet"
 
-            # Step 2: Fetch new data
-            df = yf.download(ticker, start=start_date, progress=False)
+            # Read last date if exists
+            if os.path.exists(path):
+                existing_df = pd.read_parquet(path)
+                last_date = existing_df["Date"].max()
+                start_date = pd.to_datetime(last_date)
+            else:
+                existing_df = None
+                start_date = None
+
+            df = yf.download(ticker, start=start_date, progress=False, auto_adjust=True)
             if df.empty:
                 continue
 
-            # Flatten columns if MultiIndex
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = ['_'.join(filter(None, col)) for col in df.columns]
-
-            # Select the Close column
             close_cols = [col for col in df.columns if col.lower().startswith("close")]
             if not close_cols:
                 continue
+
             close_df = df[close_cols].copy()
             close_df.columns = ['Close']
-
-            # Reset index to keep Date as a column
             close_df.reset_index(inplace=True)
             close_df.rename(columns={'index': 'Date'}, inplace=True)
 
-            # Step 3: Save to DuckDB
-            conn.execute(f"CREATE TABLE IF NOT EXISTS '{ticker}' AS SELECT * FROM close_df LIMIT 0")
-            conn.execute(f"INSERT INTO '{ticker}' SELECT * FROM close_df")
+            if existing_df is not None:
+                full_df = pd.concat([existing_df, close_df], ignore_index=True).drop_duplicates(subset=["Date"])
+            else:
+                full_df = close_df
 
+            full_df.to_parquet(path, index=False)
         except Exception as e:
-            print(f"Failed to update {ticker}: {e}")
+            print(type(e))
+            print(f"Error with {ticker}: {e}")
 
-
-    return (conn,)
+    return
 
 
 @app.cell
