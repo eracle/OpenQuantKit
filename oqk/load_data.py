@@ -39,51 +39,82 @@ def _():
         return sorted(all_tickers)
 
     # Usage
-    tickers = get_all_tickers()[:2]
+    tickers = get_all_tickers()#[:2]
     tickers
-    return os, tickers
+    return pd, tickers
 
 
 @app.cell
-def _(os, tickers):
+def _(pd, tickers):
+    from datetime import timedelta
     import yfinance as yf
     import duckdb
-    from tqdm import tqdm
+    from tqdm.notebook import tqdm
 
-    def fetch_and_store_to_duckdb(tickers, db_path="stock_data.duckdb", start="2015-01-01", end=None):
-        if os.path.exists(db_path):
-            print(f"Using existing DuckDB at {db_path}")
-        else:
-            print(f"Creating new DuckDB at {db_path}")
 
-        conn = duckdb.connect(db_path)
+    db_path = "stock_data.duckdb"
 
-        for ticker in tqdm(tickers, desc="Downloading & storing"):
+    conn = duckdb.connect(db_path)
+
+    for ticker in tqdm(tickers, desc="Updating Close Prices"):
+        try:
+            # Step 1: Get last date from DB if exists
             try:
-                df = yf.download(ticker, start=start, end=end, progress=False)
-                if df.empty:
-                    continue
+                result = conn.execute(f"SELECT MAX(Date) FROM '{ticker}'").fetchone()
+                start_date = result[0] + timedelta(days=1) if result and result[0] else None
+            except Exception:
+                start_date = None  # Table doesn't exist yet
 
-                df.reset_index(inplace=True)
-                df["Ticker"] = ticker
+            # Step 2: Fetch new data
+            df = yf.download(ticker, start=start_date, progress=False)
+            if df.empty:
+                continue
 
-                # Store in DuckDB: one table per ticker
-                conn.execute(f"CREATE OR REPLACE TABLE '{ticker}' AS SELECT * FROM df")
-            except Exception as e:
-                print(f"Failed to fetch {ticker}: {e}")
+            # Flatten columns if MultiIndex
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = ['_'.join(filter(None, col)) for col in df.columns]
 
-        conn.close()
-        print(f"Data saved to {db_path}")
+            # Select the Close column
+            close_cols = [col for col in df.columns if col.lower().startswith("close")]
+            if not close_cols:
+                continue
+            close_df = df[close_cols].copy()
+            close_df.columns = ['Close']
 
-    # Usage (after loading tickers)
-    fetch_and_store_to_duckdb(tickers)
+            # Reset index to keep Date as a column
+            close_df.reset_index(inplace=True)
+            close_df.rename(columns={'index': 'Date'}, inplace=True)
 
+            # Step 3: Save to DuckDB
+            conn.execute(f"CREATE TABLE IF NOT EXISTS '{ticker}' AS SELECT * FROM close_df LIMIT 0")
+            conn.execute(f"INSERT INTO '{ticker}' SELECT * FROM close_df")
+
+        except Exception as e:
+            print(f"Failed to update {ticker}: {e}")
+
+
+    return (conn,)
+
+
+@app.cell
+def _():
+    import marimo as mo
+    return (mo,)
+
+
+@app.cell
+def _(A, conn, mo):
+    _df = mo.sql(
+        f"""
+        SELECT * FROM A order by Date desc
+        """,
+        engine=conn
+    )
     return
 
 
 @app.cell
 def _():
-    # make the file 
     return
 
 
