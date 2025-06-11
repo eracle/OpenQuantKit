@@ -6,40 +6,84 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
-    import yfinance as yf
     import pandas as pd
+    import os
 
-    # Define your tickers
-    tickers = ["REM"]
+    def get_all_tickers(file_path="tickers.txt"):
+        if os.path.exists(file_path):
+            print(f"Reading tickers from {file_path}")
+            with open(file_path, "r") as f:
+                tickers = [line.strip() for line in f if line.strip()]
+            return tickers
 
-    # Download historical adjusted close prices
-    data = yf.download(tickers, start="2018-01-01", end="2024-12-31")#['Adj Close']
+        print(f"{file_path} not found. Downloading tickers...")
 
-    data
-    return (pd,)
+        # Download NASDAQ-listed tickers
+        nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep='|')
+        nasdaq_tickers = nasdaq['Symbol'].dropna().tolist()
+
+        # Download NYSE and other-listed tickers
+        nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep='|')
+        nyse_tickers = nyse['ACT Symbol'].dropna().tolist()
+
+        # Combine and clean
+        all_tickers = list(set(nasdaq_tickers + nyse_tickers))
+        all_tickers = [t for t in all_tickers if "test" not in t.lower()]
+
+        # Save to file
+        with open(file_path, "w") as f:
+            for ticker in sorted(all_tickers):
+                f.write(f"{ticker}\n")
+
+        print(f"Saved {len(all_tickers)} tickers to {file_path}")
+        return sorted(all_tickers)
+
+    # Usage
+    tickers = get_all_tickers()[:2]
+    tickers
+    return os, tickers
 
 
 @app.cell
-def _(pd):
+def _(os, tickers):
+    import yfinance as yf
+    import duckdb
+    from tqdm import tqdm
 
-    # Get NASDAQ-listed tickers
-    nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep='|')
-    nasdaq_tickers = nasdaq['Symbol'].tolist()
+    def fetch_and_store_to_duckdb(tickers, db_path="stock_data.duckdb", start="2015-01-01", end=None):
+        if os.path.exists(db_path):
+            print(f"Using existing DuckDB at {db_path}")
+        else:
+            print(f"Creating new DuckDB at {db_path}")
 
-    # Get NYSE + others
-    nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep='|')
-    nyse_tickers = nyse['ACT Symbol'].tolist()
+        conn = duckdb.connect(db_path)
 
-    # Combine and remove test tickers
-    all_tickers = list(set(nasdaq_tickers + nyse_tickers))
+        for ticker in tqdm(tickers, desc="Downloading & storing"):
+            try:
+                df = yf.download(ticker, start=start, end=end, progress=False)
+                if df.empty:
+                    continue
 
-    all_tickers
-    return (all_tickers,)
+                df.reset_index(inplace=True)
+                df["Ticker"] = ticker
+
+                # Store in DuckDB: one table per ticker
+                conn.execute(f"CREATE OR REPLACE TABLE '{ticker}' AS SELECT * FROM df")
+            except Exception as e:
+                print(f"Failed to fetch {ticker}: {e}")
+
+        conn.close()
+        print(f"Data saved to {db_path}")
+
+    # Usage (after loading tickers)
+    fetch_and_store_to_duckdb(tickers)
+
+    return
 
 
 @app.cell
-def _(all_tickers):
-    all_tickers
+def _():
+    # make the file 
     return
 
 
