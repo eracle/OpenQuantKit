@@ -7,51 +7,58 @@
 ## 🚀 Features
 
 1. **Input Tickers**
-   - Provided lists of user selected tickers by sector, index, or custom criteria.
+   - Define custom ticker lists based on sectors, indices, or personal criteria.
 
 2. **Efficient Data Loading**
-   - Download and store only the most recent data.
-   - Avoid redundant downloads to optimize performance.
+   - Automatically fetch and cache only the most recent stock data.
+   - Prevents redundant downloads to optimize performance.
 
 3. **Data Validation**
-   - Check for missing or anomalous values.
-   - Ensure recent data is present and there's enough historical context.
+   - Detect and report missing or anomalous values.
+   - Ensure a sufficient historical window for accurate analysis.
 
 4. **Data Fixing**
-   - Handle missing data with interpolation.
-   - Remove or repair outliers.
-   - Drop problematic tickers if necessary.
+   - Interpolate missing data points.
+   - Identify and correct outliers.
+   - Optionally drop unreliable tickers.
 
 5. **Hyperparameter Search & Tuning**
-   - Automated hyperparameter optimization for your models.
-   - Store configurations and results for reproducibility.
+   - Perform automated hyperparameter optimization (e.g., Prophet).
+   - Store configurations and results for auditability and reuse.
 
 6. **Final Model Training**
-   - Train forecasting models using cleaned and validated data.
+   - Train forecasting models on cleaned, validated datasets.
 
 7. **Forecasting**
-   - Predict future price trends or indicators to guide allocation.
+   - Use Prophet to forecast future stock behavior.
+   - Identify stocks with a low probability of underperforming over a defined horizon (e.g., 2 years).
 
-8. **Secondary Ticker Selection**
-   - Choose the best-performing or most promising assets post-forecast.
+8. **Secondary Ticker Selection & Portfolio Construction**
+   - **Step 1: Forecast-Guided Selection**  
+     Use probabilistic forecasts to identify a shortlist of "winning" stocks—those with high confidence in outperforming their current price over the investment horizon.
+   - **Step 2: Greedy Portfolio Expansion**  
+     Apply a **greedy algorithm** to iteratively build a diversified portfolio.  
+     At each step, add the stock that most reduces overall portfolio variance.  
+     Favor assets that are negatively correlated (or weakly correlated) with existing holdings.
+   - **Step 3: Hierarchical Portfolio Construction**  
+     Build the portfolio bottom-up, balancing risk and return.  
+     Prioritize anti-correlated assets to increase robustness and minimize drawdown potential.
 
 9. **Portfolio Balancing**
-   - Rebalance portfolio weights based on model outputs.
+   - Allocate weights based on model insights and risk minimization strategies.
 
 10. **Portfolio Difference Analysis**
-    - Compare current vs. target portfolio positions.
+    - Compare current allocations to target allocations.
+    - Identify required trades to rebalance effectively.
 
 11. **Trade Logging**
-    - Store actual buy/sell decisions and portfolio state after execution.
+    - Maintain a history of executed trades and portfolio states for backtesting and review.
 
 ---
 
+## ⚡ Quickstart
 
-
-
-## 🚀 Quickstart
-
-To edit the example marimo notebook using Docker Compose and the `local.yml` file:
+To launch the Marimo notebook using Docker Compose:
 
 ```bash
 make compose
