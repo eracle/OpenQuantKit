@@ -13,4 +13,4 @@ fi
 source .venv/bin/activate
 
 # Start the marimo notebook
-marimo edit notebook.py --host 0.0.0.0 --port 8888
+marimo edit oqk/load_data.py --host 0.0.0.0 --port 8888
