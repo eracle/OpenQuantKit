@@ -19,12 +19,12 @@ def _():
         print(f"{file_path} not found. Downloading tickers...")
 
         # Download NASDAQ-listed tickers
-        nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep='|')
-        nasdaq_tickers = nasdaq['Symbol'].dropna().tolist()
+        nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep="|")
+        nasdaq_tickers = nasdaq["Symbol"].dropna().tolist()
 
         # Download NYSE and other-listed tickers
-        nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep='|')
-        nyse_tickers = nyse['ACT Symbol'].dropna().tolist()
+        nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep="|")
+        nyse_tickers = nyse["ACT Symbol"].dropna().tolist()
 
         # Combine and clean
         all_tickers = list(set(nasdaq_tickers + nyse_tickers))
@@ -39,7 +39,7 @@ def _():
         return sorted(all_tickers)
 
     # Usage
-    tickers = get_all_tickers()#[:2]
+    tickers = get_all_tickers()  # [:2]
     tickers
     return pd, tickers
 
@@ -50,66 +50,72 @@ def _(pd, tickers):
     import yfinance as yf
     import duckdb
     from tqdm.notebook import tqdm
+    import os
 
-
-    db_path = "stock_data.duckdb"
-
-    conn = duckdb.connect(db_path)
+    data_dir = "data"
+    os.makedirs(data_dir, exist_ok=True)
 
     for ticker in tqdm(tickers, desc="Updating Close Prices"):
+        db_path = os.path.join(data_dir, f"{ticker}.duckdb")
+        conn = duckdb.connect(db_path)
         try:
-            # Step 1: Get last date from DB if exists
             try:
-                result = conn.execute(f"SELECT MAX(Date) FROM '{ticker}'").fetchone()
+                result = conn.execute(f"SELECT MAX(date) FROM {ticker}").fetchone()
                 start_date = result[0] + timedelta(days=1) if result and result[0] else None
             except Exception:
-                start_date = None  # Table doesn't exist yet
+                conn.execute(f"CREATE TABLE IF NOT EXISTS {ticker} (date DATE, close DOUBLE)")
+                start_date = None
 
-            # Step 2: Fetch new data
             df = yf.download(ticker, start=start_date, progress=False)
             if df.empty:
+                conn.close()
                 continue
 
-            # Flatten columns if MultiIndex
             if isinstance(df.columns, pd.MultiIndex):
-                df.columns = ['_'.join(filter(None, col)) for col in df.columns]
+                df.columns = ["_".join(filter(None, col)) for col in df.columns]
 
-            # Select the Close column
             close_cols = [col for col in df.columns if col.lower().startswith("close")]
             if not close_cols:
+                conn.close()
                 continue
             close_df = df[close_cols].copy()
-            close_df.columns = ['Close']
+            close_df.columns = ["close"]
 
-            # Reset index to keep Date as a column
             close_df.reset_index(inplace=True)
-            close_df.rename(columns={'index': 'Date'}, inplace=True)
+            if "index" in close_df.columns:
+                close_df.rename(columns={"index": "date"}, inplace=True)
+            if "Date" in close_df.columns:
+                close_df.rename(columns={"Date": "date"}, inplace=True)
 
-            # Step 3: Save to DuckDB
-            conn.execute(f"CREATE TABLE IF NOT EXISTS '{ticker}' AS SELECT * FROM close_df LIMIT 0")
-            conn.execute(f"INSERT INTO '{ticker}' SELECT * FROM close_df")
-
+            conn.execute(f"INSERT INTO {ticker} VALUES (?, ?)", close_df.values.tolist())
         except Exception as e:
             print(f"Failed to update {ticker}: {e}")
+        finally:
+            conn.close()
 
-
-    return (conn,)
+    return
 
 
 @app.cell
 def _():
     import marimo as mo
-    return (mo,)
+
+    return mo
 
 
 @app.cell
-def _(A, conn, mo):
-    _df = mo.sql(
-        f"""
-        SELECT * FROM A order by Date desc
-        """,
-        engine=conn
-    )
+def _(mo, tickers):
+    import duckdb
+
+    ticker = tickers[0] if tickers else None
+    if ticker:
+        db_path = f"data/{ticker}.duckdb"
+        conn = duckdb.connect(db_path)
+        _df = mo.sql(
+            f"SELECT * FROM {ticker} ORDER BY date DESC",
+            engine=conn,
+        )
+        conn.close()
     return
 
 
