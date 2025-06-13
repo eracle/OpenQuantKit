@@ -41,35 +41,57 @@ def _():
     # Usage
     tickers = get_all_tickers()  # [:2]
     tickers
-    return pd, tickers
+    return os, pd, tickers
 
 
 @app.cell
-def _(pd, tickers):
-    from datetime import timedelta
+def _(os, pd, tickers):
+    from datetime import timedelta, date
     import yfinance as yf
     import duckdb
+    from concurrent.futures import ThreadPoolExecutor
     from tqdm.notebook import tqdm
-    import os
 
+    import random
+
+    random.shuffle(tickers)
     data_dir = "data"
     os.makedirs(data_dir, exist_ok=True)
 
-    for ticker in tqdm(tickers, desc="Updating Close Prices"):
-        db_path = os.path.join(data_dir, f"{ticker}.duckdb")
-        conn = duckdb.connect(db_path)
+    def update_ticker(ticker):
         try:
-            try:
-                result = conn.execute(f"SELECT MAX(date) FROM {ticker}").fetchone()
-                start_date = result[0] + timedelta(days=1) if result and result[0] else None
-            except Exception:
-                conn.execute(f"CREATE TABLE IF NOT EXISTS {ticker} (date DATE, close DOUBLE)")
-                start_date = None
+            db_path = os.path.join(data_dir, f"{ticker}.duckdb")
+            conn = duckdb.connect(db_path)
+            table_name = ticker  # no quoting needed in per-file DB
 
-            df = yf.download(ticker, start=start_date, progress=False)
+            today = date.today()
+
+            # Try to get max date
+            try:
+                result = conn.execute(f"SELECT MAX(date) FROM {table_name}").fetchone()
+                max_date = result[0] if result and result[0] else None
+
+                if max_date is not None:
+                    if max_date >= today:
+                        conn.close()
+                        return f"{ticker}: Up-to-date"
+                    start_date = max_date + timedelta(days=1)
+                    if start_date > today:
+                        conn.close()
+                        return f"{ticker}: Nothing to fetch"
+                else:
+                    start_date = None  # fetch full history
+
+            except Exception:
+                conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (date DATE, close DOUBLE)")
+                start_date = None  # new table → fetch full history
+
+            # Download
+            print(start_date)
+            df = yf.download(ticker, start=start_date, progress=False, auto_adjust=True)
             if df.empty:
                 conn.close()
-                continue
+                return f"{ticker}: No data"
 
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = ["_".join(filter(None, col)) for col in df.columns]
@@ -77,50 +99,59 @@ def _(pd, tickers):
             close_cols = [col for col in df.columns if col.lower().startswith("close")]
             if not close_cols:
                 conn.close()
-                continue
+                return f"{ticker}: No close column"
+
             close_df = df[close_cols].copy()
             close_df.columns = ["close"]
-
             close_df.reset_index(inplace=True)
+
             if "index" in close_df.columns:
                 close_df.rename(columns={"index": "date"}, inplace=True)
-            if "Date" in close_df.columns:
+            elif "Date" in close_df.columns:
                 close_df.rename(columns={"Date": "date"}, inplace=True)
 
-            conn.execute(f"INSERT INTO {ticker} VALUES (?, ?)", close_df.values.tolist())
-        except Exception as e:
-            print(f"Failed to update {ticker}: {e}")
-        finally:
+            close_df["date"] = pd.to_datetime(close_df["date"]).dt.date
+
+            conn.register("close_df", close_df)
+            conn.execute(f"INSERT INTO {table_name} SELECT * FROM close_df")
             conn.close()
+            return f"{ticker}: Updated"
 
-    return
+        except Exception as e:
+            return f"{ticker}: Error - {e}"
 
+    # --- Main Execution ---
+    max_threads = min(1, len(tickers))
+    with ThreadPoolExecutor(max_workers=max_threads) as executor:
+        results = list(tqdm(executor.map(update_ticker, tickers), total=len(tickers), desc="Updating tickers"))
 
-@app.cell
-def _():
-    import marimo as mo
+    for r in results:
+        print(r)
 
-    return mo
-
-
-@app.cell
-def _(mo, tickers):
-    import duckdb
-
-    ticker = tickers[0] if tickers else None
-    if ticker:
-        db_path = f"data/{ticker}.duckdb"
-        conn = duckdb.connect(db_path)
-        _df = mo.sql(
-            f"SELECT * FROM {ticker} ORDER BY date DESC",
-            engine=conn,
-        )
-        conn.close()
-    return
+    return data_dir, duckdb
 
 
 @app.cell
-def _():
+def _(data_dir, duckdb, os):
+
+
+    # Get the first .duckdb file in the directory (sorted alphabetically)
+    duckdb_files = sorted([f for f in os.listdir(data_dir) if f.endswith(".duckdb")])
+    if not duckdb_files:
+        raise FileNotFoundError("No DuckDB files found in the 'data' directory.")
+
+    first_file = duckdb_files[100]
+    db_path = os.path.join(data_dir, first_file)
+    table_name = os.path.splitext(first_file)[0]  # table name = ticker = filename without extension
+
+    # Connect and read data
+    conn = duckdb.connect(db_path)
+    df = conn.execute(f"SELECT * FROM {table_name}").fetchdf()
+    #conn.close()
+
+    # Display the first few rows
+    df
+
     return
 
 
