@@ -19,12 +19,12 @@ def _():
         print(f"{file_path} not found. Downloading tickers...")
 
         # Download NASDAQ-listed tickers
-        nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep='|')
-        nasdaq_tickers = nasdaq['Symbol'].dropna().tolist()
+        nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep="|")
+        nasdaq_tickers = nasdaq["Symbol"].dropna().tolist()
 
         # Download NYSE and other-listed tickers
-        nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep='|')
-        nyse_tickers = nyse['ACT Symbol'].dropna().tolist()
+        nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep="|")
+        nyse_tickers = nyse["ACT Symbol"].dropna().tolist()
 
         # Combine and clean
         all_tickers = list(set(nasdaq_tickers + nyse_tickers))
@@ -39,74 +39,59 @@ def _():
         return sorted(all_tickers)
 
     # Usage
-    tickers = get_all_tickers()#[:2]
+    tickers = get_all_tickers()  # [:2]
     tickers
-    return os, pd, tickers
+    return pd, tickers
 
 
 @app.cell
-def _():
-    try:
-        import pyarrow.parquet
-    except ImportError:
-        raise ImportError(
-            "❌ Missing dependency: `pyarrow` is required to read/write Parquet files.\n"
-            "💡 Install it with:\n"
-            "   pip install pyarrow\n"
-            "   or\n"
-            "   conda install pyarrow -c conda-forge"
-        )
-
-    return
-
-
-@app.cell
-def _(os, pd, tickers):
+def _(pd, tickers):
     from datetime import timedelta
     import yfinance as yf
+    import duckdb
     from tqdm.notebook import tqdm
+    import os
 
+    data_dir = "data"
+    os.makedirs(data_dir, exist_ok=True)
 
-    parquet_dir = "parquet_cache"
-    os.makedirs(parquet_dir, exist_ok=True)
-
-    for ticker in tqdm(tickers, desc="Fetching to Parquet"):
+    for ticker in tqdm(tickers, desc="Updating Close Prices"):
+        db_path = os.path.join(data_dir, f"{ticker}.duckdb")
+        conn = duckdb.connect(db_path)
         try:
-            path = f"{parquet_dir}/{ticker}.parquet"
-
-            # Read last date if exists
-            if os.path.exists(path):
-                existing_df = pd.read_parquet(path)
-                last_date = existing_df["Date"].max()
-                start_date = pd.to_datetime(last_date)
-            else:
-                existing_df = None
+            try:
+                result = conn.execute(f"SELECT MAX(date) FROM {ticker}").fetchone()
+                start_date = result[0] + timedelta(days=1) if result and result[0] else None
+            except Exception:
+                conn.execute(f"CREATE TABLE IF NOT EXISTS {ticker} (date DATE, close DOUBLE)")
                 start_date = None
 
-            df = yf.download(ticker, start=start_date, progress=False, auto_adjust=True)
+            df = yf.download(ticker, start=start_date, progress=False)
             if df.empty:
+                conn.close()
                 continue
 
             if isinstance(df.columns, pd.MultiIndex):
-                df.columns = ['_'.join(filter(None, col)) for col in df.columns]
+                df.columns = ["_".join(filter(None, col)) for col in df.columns]
+
             close_cols = [col for col in df.columns if col.lower().startswith("close")]
             if not close_cols:
+                conn.close()
                 continue
-
             close_df = df[close_cols].copy()
-            close_df.columns = ['Close']
+            close_df.columns = ["close"]
+
             close_df.reset_index(inplace=True)
-            close_df.rename(columns={'index': 'Date'}, inplace=True)
+            if "index" in close_df.columns:
+                close_df.rename(columns={"index": "date"}, inplace=True)
+            if "Date" in close_df.columns:
+                close_df.rename(columns={"Date": "date"}, inplace=True)
 
-            if existing_df is not None:
-                full_df = pd.concat([existing_df, close_df], ignore_index=True).drop_duplicates(subset=["Date"])
-            else:
-                full_df = close_df
-
-            full_df.to_parquet(path, index=False)
+            conn.execute(f"INSERT INTO {ticker} VALUES (?, ?)", close_df.values.tolist())
         except Exception as e:
-            print(type(e))
-            print(f"Error with {ticker}: {e}")
+            print(f"Failed to update {ticker}: {e}")
+        finally:
+            conn.close()
 
     return
 
@@ -114,17 +99,23 @@ def _(os, pd, tickers):
 @app.cell
 def _():
     import marimo as mo
-    return (mo,)
+
+    return mo
 
 
 @app.cell
-def _(A, conn, mo):
-    _df = mo.sql(
-        f"""
-        SELECT * FROM A order by Date desc
-        """,
-        engine=conn
-    )
+def _(mo, tickers):
+    import duckdb
+
+    ticker = tickers[0] if tickers else None
+    if ticker:
+        db_path = f"data/{ticker}.duckdb"
+        conn = duckdb.connect(db_path)
+        _df = mo.sql(
+            f"SELECT * FROM {ticker} ORDER BY date DESC",
+            engine=conn,
+        )
+        conn.close()
     return
 
 
