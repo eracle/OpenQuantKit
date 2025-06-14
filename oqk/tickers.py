@@ -92,6 +92,7 @@ def get_all_valid_tickers(db_path: str = DB_PATH) -> List[str]:
 
 
 def mark_ticker_as_bad(symbol: str, db_path: str = DB_PATH) -> None:
+    print(f"Bad ticker:{symbol}")
     con = duckdb.connect(db_path)
     con.execute("UPDATE tickers SET is_bad = TRUE WHERE symbol = ?", (symbol,))
     con.close()
