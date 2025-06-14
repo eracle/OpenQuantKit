@@ -1,13 +1,48 @@
+import os
+from typing import List
+
 import duckdb
 import pandas as pd
-from typing import List
-from datetime import date, timedelta
+from pandas.tseries.offsets import BDay
 
 DB_PATH = "tickers.duckdb"
 
 
+def ensure_tickers_initialized(db_path: str = DB_PATH) -> None:
+    """Ensure the tickers DB file exists, the table is created, and populated if empty."""
+    db_exists = os.path.exists(db_path)
+
+    # Step 1: Create the DB and table if missing
+    init_ticker_table(db_path)
+
+    # Step 2: Populate only if the DB is new or table is empty
+    if not db_exists:
+        print("🆕 Database file didn't exist. Initializing fresh ticker data...")
+    populate_tickers_from_exchange(db_path)
+
+
+def get_all_valid_tickers(db_path: str = DB_PATH) -> List[str]:
+    """Return tickers not marked as bad and needing update, sorted by oldest max_date first."""
+    ensure_tickers_initialized()
+
+    con = duckdb.connect(db_path)
+
+    # Get the most recent market day
+    safe_lag_date = (pd.Timestamp.today() - BDay(1)).date()
+
+    rows = con.execute("""
+        SELECT symbol
+        FROM tickers
+        WHERE is_bad = FALSE AND (max_date IS NULL OR max_date < ?)
+        ORDER BY max_date NULLS FIRST
+    """, (safe_lag_date,)).fetchall()
+
+    con.close()
+    return [row[0] for row in rows]
+
+
 def init_ticker_table(db_path: str = DB_PATH) -> None:
-    """Ensure the tickers table exists and show current stats."""
+    """Ensure the tickers table exists."""
     con = duckdb.connect(db_path)
     con.execute("""
         CREATE TABLE IF NOT EXISTS tickers (
@@ -16,6 +51,12 @@ def init_ticker_table(db_path: str = DB_PATH) -> None:
             is_bad BOOLEAN DEFAULT FALSE
         )
     """)
+    con.close()
+
+
+def print_ticker_table_stats(db_path: str = DB_PATH) -> None:
+    """Print summary statistics and sample data from the tickers table."""
+    con = duckdb.connect(db_path)
 
     print("\n📊 Ticker Table Summary:")
     try:
@@ -76,19 +117,6 @@ def populate_tickers_from_exchange(db_path: str = DB_PATH) -> None:
     con.close()
 
     print(f"Saved {len(symbols)} tickers to DuckDB")
-
-
-def get_all_valid_tickers(db_path: str = DB_PATH) -> List[str]:
-    """Return tickers not marked as bad and not already up-to-date."""
-    con = duckdb.connect(db_path)
-    end_date = date.today() - timedelta(days=1)
-    rows = con.execute("""
-        SELECT symbol
-        FROM tickers
-        WHERE is_bad = FALSE AND (max_date IS NULL OR max_date < ?)
-    """, (str(end_date),)).fetchall()
-    con.close()
-    return [row[0] for row in rows]
 
 
 def mark_ticker_as_bad(symbol: str, db_path: str = DB_PATH) -> None:

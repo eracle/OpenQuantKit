@@ -16,6 +16,8 @@ from .tickers import (
 
 DB_PATH = "tickers.duckdb"
 
+TABLE_NAME = "prices"
+
 
 def update_ticker(ticker: str, data_dir: str = "data") -> tuple[bool, date | None]:
     today = date.today()
@@ -32,10 +34,9 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[bool, date | Non
 
     db_path = os.path.join(data_dir, f"{ticker}.duckdb")
     conn = duckdb.connect(db_path)
-    table_name = ticker
 
     try:
-        result = conn.execute(f"SELECT MAX(date) FROM {table_name}").fetchone()
+        result = conn.execute(f"SELECT MAX(date) FROM {TABLE_NAME}").fetchone()
         max_date = result[0] if result and result[0] else None
 
         if max_date is not None:
@@ -51,7 +52,7 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[bool, date | Non
         else:
             start_date = None
     except Exception:
-        conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (date DATE, close DOUBLE)")
+        conn.execute(f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} (date DATE, close DOUBLE)")
         start_date = None
 
     try:
@@ -86,7 +87,7 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[bool, date | Non
     close_df["date"] = pd.to_datetime(close_df["date"]).dt.date
 
     conn.register("close_df", close_df)
-    conn.execute(f"INSERT INTO {table_name} SELECT * FROM close_df")
+    conn.execute(f"INSERT INTO {TABLE_NAME} SELECT * FROM close_df")
     conn.close()
 
     last_date = close_df["date"].max()
@@ -145,7 +146,7 @@ def update_ticker_parallel(tickers: list[str], data_dir: str, max_workers: int, 
 def update_ticker_data(
         tickers: list[str] | None = None,
         data_dir: str = "data",
-        max_workers: int = 4,
+        max_workers: int = 32,
         parallel: bool = True
 ) -> str:
     init_ticker_table()
@@ -164,4 +165,4 @@ def update_ticker_data(
 
 
 if __name__ == "__main__":
-    update_ticker_data(parallel=True)
+    update_ticker_data(parallel=False)
