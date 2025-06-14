@@ -199,7 +199,7 @@ def update_ticker_data(
 
     try:
         if parallel:
-            update_ticker_parallel(tickers, data_dir, max_workers=1, batch_size=1)
+            update_ticker_parallel(tickers, data_dir, max_workers=8, batch_size=8)
         else:
             update_ticker_sequential(tickers, data_dir)
     except RateLimitException:
@@ -209,4 +209,4 @@ def update_ticker_data(
 
 
 if __name__ == "__main__":
-    update_ticker_data(parallel=True)
+    update_ticker_data(parallel=False)
