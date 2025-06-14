@@ -1,4 +1,5 @@
 .idea/
 config.py
 data/
+tickers.duckdb
 __pycache__/

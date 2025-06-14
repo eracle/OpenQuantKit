@@ -1,11 +1,17 @@
 import os
+from datetime import date
 from typing import List
 
 import duckdb
 import pandas as pd
 from pandas.tseries.offsets import BDay
 
+TABLE_NAME = "prices"
 DB_PATH = "tickers.duckdb"
+
+
+def get_safe_lag_date() -> date:
+    return (pd.Timestamp.today() - BDay(1)).date()
 
 
 def ensure_tickers_initialized(db_path: str = DB_PATH) -> None:
@@ -28,7 +34,7 @@ def get_all_valid_tickers(db_path: str = DB_PATH) -> List[str]:
     con = duckdb.connect(db_path)
 
     # Get the most recent market day
-    safe_lag_date = (pd.Timestamp.today() - BDay(1)).date()
+    safe_lag_date = get_safe_lag_date()
 
     rows = con.execute("""
         SELECT symbol
