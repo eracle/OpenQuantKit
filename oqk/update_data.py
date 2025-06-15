@@ -9,13 +9,14 @@ import yfinance as yf
 from tqdm import tqdm
 from yfinance.exceptions import YFRateLimitError, YFInvalidPeriodError
 
-from .price_db import get_ticker_max_date
+from .price_db import get_ticker_max_date, append_price_data
 from .ticker_db import (
     init_ticker_table,
     get_all_valid_tickers,
     mark_ticker_as_bad,
     update_max_date,
-    get_safe_lag_date, update_ticker_metrics
+    get_safe_lag_date,
+    update_ticker_metrics,
 )
 from .ticker_metrics import compute_ticker_metrics
 
@@ -47,15 +48,13 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
         return TickerUpdateState.FAILED, None
 
     try:
-        conn, max_date = get_ticker_max_date(ticker, data_dir)
+        max_date = get_ticker_max_date(ticker, data_dir)
 
         if max_date is not None:
             if max_date >= end_date:
-                conn.close()
                 return TickerUpdateState.UP_TO_DATE, max_date
             start_date = max_date + timedelta(days=1)
             if start_date > end_date:
-                conn.close()
                 print(f"{ticker}: Nothing to fetch")
                 return TickerUpdateState.UP_TO_DATE, max_date
         else:
@@ -65,23 +64,24 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
         return TickerUpdateState.FAILED, None
 
     try:
-        df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1),
-                         progress=False, auto_adjust=True)
+        df = yf.download(
+            ticker,
+            start=start_date,
+            end=end_date + timedelta(days=1),
+            progress=False,
+            auto_adjust=True,
+        )
     except YFRateLimitError:
-        conn.close()
         print(f"{ticker}: Hit Yahoo Finance rate limit during download.")
         return TickerUpdateState.RATE_LIMITED, None
     except YFInvalidPeriodError as e:
-        conn.close()
         print(f"{ticker}: Invalid period during download - {e}")
         return TickerUpdateState.FAILED, None
     except Exception as e:
-        conn.close()
         print(f"{ticker}: Download error - {e}")
         return TickerUpdateState.RATE_LIMITED, None
 
     if df.empty:
-        conn.close()
         print(f"{ticker}: No data")
         return TickerUpdateState.FAILED, None
 
@@ -90,7 +90,6 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
 
     close_cols = [col for col in df.columns if col.lower().startswith("close")]
     if not close_cols:
-        conn.close()
         print(f"{ticker}: No close column")
         return TickerUpdateState.FAILED, None
 
@@ -103,9 +102,7 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
 
     close_df["date"] = pd.to_datetime(close_df["date"]).dt.date
 
-    conn.register("close_df", close_df)
-    conn.execute("INSERT INTO prices SELECT * FROM close_df")
-    conn.close()
+    append_price_data(ticker, close_df, data_dir)
 
     last_date = close_df["date"].max()
     metrics = compute_ticker_metrics(close_df)
