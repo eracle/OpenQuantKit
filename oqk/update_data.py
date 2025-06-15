@@ -15,7 +15,7 @@ from .ticker_db import (
     get_all_valid_tickers,
     mark_ticker_as_bad,
     update_max_date,
-    get_safe_lag_date
+    get_safe_lag_date, update_ticker_metrics
 )
 from .ticker_metrics import compute_ticker_metrics
 
