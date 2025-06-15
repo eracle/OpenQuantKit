@@ -10,13 +10,16 @@ from tqdm import tqdm
 from yfinance.exceptions import YFRateLimitError, YFInvalidPeriodError
 
 from .price_db import get_ticker_max_date, append_price_data
-from .ticker_db import (
-    init_ticker_table,
-    get_all_valid_tickers,
+from .raw_ticker_db import (
+    init_raw_ticker_table,
     mark_ticker_as_bad,
-    update_max_date,
     get_safe_lag_date,
+)
+from .ticker_metrics_db import (
+    init_metrics_table,
     update_ticker_metrics,
+    update_last_date,
+    get_tickers_needing_update,
 )
 from .ticker_metrics import compute_ticker_metrics
 
@@ -113,10 +116,10 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
     return TickerUpdateState.UPDATED, last_date
 
 
-def handle_ticker_result(ticker: str, state: TickerUpdateState, max_date: Optional[date]) -> None:
-    match (state, max_date):
+def handle_ticker_result(ticker: str, state: TickerUpdateState, last_date: Optional[date]) -> None:
+    match (state, last_date):
         case (TickerUpdateState.UPDATED, d) if d is not None:
-            update_max_date(ticker, d)
+            update_last_date(ticker, d)
         case (TickerUpdateState.FAILED, _):
             mark_ticker_as_bad(ticker)
         case _:
@@ -137,10 +140,11 @@ def update_ticker_data(
     tickers: Optional[list[str]] = None,
     data_dir: str = "data",
 ) -> str:
-    init_ticker_table()
+    init_raw_ticker_table()
+    init_metrics_table()
 
     if tickers is None:
-        tickers = get_all_valid_tickers()
+        tickers = get_tickers_needing_update()
 
     os.makedirs(data_dir, exist_ok=True)
     update_ticker_sequential(tickers, data_dir)

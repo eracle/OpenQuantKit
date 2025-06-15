@@ -4,7 +4,8 @@ import pandas as pd
 from datetime import timedelta
 from pandas.tseries.offsets import BDay
 
-from .ticker_db import get_safe_lag_date
+from .raw_ticker_db import get_safe_lag_date
+
 
 def compute_ticker_metrics(df: pd.DataFrame) -> dict:
     df = df.copy()
