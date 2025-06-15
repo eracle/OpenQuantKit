@@ -4,8 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8888:8888"
-    command: marimo edit notebook.py --host 0.0.0.0 --port 8888
+    command: python -m oqk.update_data
     volumes:
       - .:/app

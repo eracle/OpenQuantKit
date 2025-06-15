@@ -12,5 +12,5 @@ fi
 # Activate the virtual environment
 source .venv/bin/activate
 
-# Start the marimo notebook
-marimo edit oqk/load_data.py --host 0.0.0.0 --port 8888
+# Run the data update script
+python -m oqk.update_data
