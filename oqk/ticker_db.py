@@ -25,9 +25,36 @@ def init_ticker_table(db_path: str = DB_PATH) -> None:
         CREATE TABLE IF NOT EXISTS tickers (
             symbol TEXT PRIMARY KEY,
             max_date DATE,
-            is_bad BOOLEAN DEFAULT FALSE
+            is_bad BOOLEAN DEFAULT FALSE,
+            data_duration_days INTEGER,
+            num_data_points INTEGER,
+            completeness_ratio DOUBLE,
+            largest_gap_days INTEGER,
+            num_gaps_gt_3_days INTEGER,
+            num_gaps_gt_5_days INTEGER,
+            std_close DOUBLE,
+            num_zero_close INTEGER,
+            first_date DATE,
+            last_date DATE,
+            weekday_coverage DOUBLE,
+            has_recent_data BOOLEAN,
+            num_duplicate_dates INTEGER
         )
     """)
+    con.close()
+
+
+def update_ticker_metrics(symbol: str, metrics: dict, db_path: str = DB_PATH) -> None:
+    con = duckdb.connect(db_path)
+    keys = ", ".join(metrics.keys())
+    placeholders = ", ".join(["?"] * len(metrics))
+    values = list(metrics.values())
+    sql = f"""
+        UPDATE tickers
+        SET ({keys}) = ({placeholders})
+        WHERE symbol = ?
+    """
+    con.execute(sql, (*values, symbol))
     con.close()
 
 

@@ -9,6 +9,7 @@ import yfinance as yf
 from tqdm import tqdm
 from yfinance.exceptions import YFRateLimitError, YFInvalidPeriodError
 
+from .price_db import get_ticker_max_date
 from .ticker_db import (
     init_ticker_table,
     get_all_valid_tickers,
@@ -16,7 +17,7 @@ from .ticker_db import (
     update_max_date,
     get_safe_lag_date
 )
-from .price_db import get_ticker_max_date
+from .ticker_metrics import compute_ticker_metrics
 
 
 class TickerUpdateState(Enum):
@@ -107,6 +108,11 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
     conn.close()
 
     last_date = close_df["date"].max()
+    metrics = compute_ticker_metrics(close_df)
+
+    if metrics:
+        update_ticker_metrics(ticker, metrics)
+
     return TickerUpdateState.UPDATED, last_date
 
 
