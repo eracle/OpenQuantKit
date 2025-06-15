@@ -1,4 +1,4 @@
-# ticker_db.py
+# # oqk/ticker_db.py
 
 import os
 from datetime import date

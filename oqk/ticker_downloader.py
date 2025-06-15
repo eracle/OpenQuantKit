@@ -1,4 +1,4 @@
-# ticker_downloader.py
+# # oqk/ticker_downloader.py
 
 import pandas as pd
 import duckdb
