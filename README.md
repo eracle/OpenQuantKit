@@ -58,37 +58,25 @@
 
 ## ⚡ Quickstart
 
-To launch the Marimo notebook using Docker Compose:
+Install the dependencies and update price data locally:
+
+```bash
+pip install -r requirements.txt
+python -m oqk.update_data
+```
+
+Or run the same command inside Docker:
 
 ```bash
 make compose
 ```
 
-Then open <http://localhost:8888> in your browser.
-
-Or to use a local virtual environment:
-
-```bash
-make run
-```
-
-This will start the marimo server and open the `notebook.py` app.
-
-
-## \ud83d\udd27 Configuration
-
-Copy the configuration template and customize ticker groups:
-
-```bash
-cp oqk/config.template.py config.py
-```
-
-Edit `config.py` with your desired tickers.
+This builds the container and runs the data update script.
 
 ## \ud83d\udd2e Tests
 
 Run the unit tests with:
 
 ```bash
-pytest
+make test
 ```

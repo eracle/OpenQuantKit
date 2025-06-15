@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["marimo", "edit", "notebook.py", "--host", "0.0.0.0", "--port", "8888"]
+CMD ["python", "-m", "oqk.update_data"]
