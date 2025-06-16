@@ -1,25 +1,23 @@
 # oqk/update_data.py
 import os
-from datetime import date, timedelta
+from datetime import date
+from datetime import timedelta
 from enum import Enum, auto
 from typing import Optional
 
 import pandas as pd
 import yfinance as yf
+from pandas.tseries.offsets import BDay
 from tqdm import tqdm
 from yfinance.exceptions import YFRateLimitError, YFInvalidPeriodError
 
 from .price_db import get_ticker_max_date, append_price_data
-from .raw_ticker_db import (
-    mark_ticker_as_bad,
-    get_safe_lag_date,
-)
-from .ticker_metrics import compute_ticker_metrics
-from .ticker_metrics_db import (
-    update_ticker_metrics,
-    update_last_date,
-    get_tickers_needing_update,
-)
+from .ticker_metrics_db import get_tickers_needing_update, mark_ticker_as_bad
+
+
+def get_safe_lag_date() -> date:
+    """Return the last business day."""
+    return (pd.Timestamp.today() - BDay(1)).date()
 
 
 class TickerUpdateState(Enum):
@@ -63,7 +61,7 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
             multi_level_index=False,
             threads=True
         )
-
+        print(len(df))
     except YFRateLimitError:
         print(f"{ticker}: Hit Yahoo Finance rate limit during download.")
         return TickerUpdateState.RATE_LIMITED, None
@@ -95,10 +93,6 @@ def update_ticker(ticker: str, data_dir: str = "data") -> tuple[TickerUpdateStat
     append_price_data(ticker, close_df, data_dir)
 
     last_date = close_df["date"].max()
-    metrics = compute_ticker_metrics(close_df)
-
-    if metrics:
-        update_ticker_metrics(ticker, metrics)
 
     return TickerUpdateState.UPDATED, last_date
 
@@ -110,9 +104,6 @@ def update_tickers(tickers: list[str], data_dir: str) -> None:
         if state == TickerUpdateState.RATE_LIMITED:
             raise RateLimitException("Yahoo Finance rate limit reached.")
 
-        elif state == TickerUpdateState.UPDATED and last_date is not None:
-            update_last_date(ticker, last_date)
-
         elif state == TickerUpdateState.FAILED:
             mark_ticker_as_bad(ticker)
 
@@ -120,7 +111,7 @@ def update_tickers(tickers: list[str], data_dir: str) -> None:
 def update_ticker_data(
     data_dir: str = "data",
 ) -> str:
-    tickers = get_tickers_needing_update()
+    tickers = get_tickers_needing_update(db_path="seeds/raw_tickers.csv")
 
     os.makedirs(data_dir, exist_ok=True)
     update_tickers(tickers, data_dir)
