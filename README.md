@@ -1,6 +1,43 @@
 # 🧠 OpenQuantKit
 
-**OpenQuantKit** is an open-source pipeline for quantitative stock analysis and portfolio management. Designed with notebooks in mind, it enables a fully automated and reproducible workflow from ticker selection to portfolio rebalancing.
+The open-source data pipeline toolkit for modern quant research.
+Clean data. Modular pipelines. Real financial signals.
+
+📈 What is Open Quant Kit?
+Open Quant Kit (OQK) is an open-source, modular data pipeline framework designed for developers, analysts, and researchers who want to work with financial data the right way.
+
+It connects real-time and historical market data to a clean, extensible analytics stack using tools like Dagster, dbt, and Python. From ingestion to transformation to dashboard-ready metrics — everything is reproducible, inspectable, and built for scale.
+
+🔧 Features
+✅ Modular pipelines powered by Dagster
+
+✅ Clean transformations using dbt
+
+✅ Support for price data, earnings, filings, and more
+
+✅ Easy local setup with DuckDB / CSV
+
+✅ Plug-in ready architecture for indicators, signals, and strategies
+
+✅ Compatible with Streamlit, Jupyter, and backtesting frameworks
+
+✅ Ready for cloud or local deployment
+
+💡 Why Use It?
+Most quant projects start with messy CSVs and brittle scripts.
+Open Quant Kit gives you a clean slate, structured flow, and modular power — without the enterprise price tag or bloat.
+
+Whether you're:
+
+🧑‍💻 Building your own quant system
+
+🎓 Working on a finance/data science thesis
+
+🧠 Testing new indicators
+
+🚀 Launching a new fintech tool
+
+...OQK gives you a real data foundation with zero vendor lock-in.
 
 ---
 
