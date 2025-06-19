@@ -1,0 +1,24 @@
+#!/bin/bash
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# Paths for dbt
+DBT_PROFILES_DIR="/app/dagster/dbt/config"
+DBT_PROJECT_DIR="/app/dagster/dbt"
+
+# Install dbt dependencies
+echo "Installing dbt dependencies..."
+dbt deps --profiles-dir "$DBT_PROFILES_DIR" --project-dir "$DBT_PROJECT_DIR"
+echo "dbt dependencies installed." >&2
+
+# Parse dbt project
+echo "Parsing dbt project..."
+dbt parse --profiles-dir "$DBT_PROFILES_DIR" --project-dir "$DBT_PROJECT_DIR"
+echo "dbt parse completed." >&2
+
+# Start Dagster daemon in background
+/usr/local/bin/dagster-daemon run -w workspace.yaml &
+
+# Start Dagster webserver
+exec /usr/local/bin/dagster-webserver -h 0.0.0.0 -p 4000 -w workspace.yaml

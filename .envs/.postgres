@@ -1,0 +1,13 @@
+# PostgreSQL Common Configuration
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+# PostgreSQL Databases
+# ------------------------------------------------------------------------------
+POSTGRES_DB=open_quant_kit_db                   # Main application database (Django)
+POSTGRES_DAGSTER_DB=open_quant_kit_dagster_db   # Dagster-specific database
+
+

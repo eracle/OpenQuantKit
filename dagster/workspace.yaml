@@ -1,0 +1,6 @@
+# dagster.yaml
+load_from:
+  - python_module:
+      module_name: "open_quant_kit.repository"
+      location_name: "Open Quant Kit"
+

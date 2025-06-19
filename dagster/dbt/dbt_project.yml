@@ -1,0 +1,12 @@
+name: 'open_quant_kit_pipeline'
+version: '1.0.0'
+config-version: 2
+
+profile: 'open_quant_kit_pipeline'
+
+model-paths: [ "models" ]
+analysis-paths: [ "analyses" ]
+test-paths: [ "tests" ]
+seed-paths: [ "seeds" ]
+macro-paths: [ "macros" ]
+snapshot-paths: [ "snapshots" ]

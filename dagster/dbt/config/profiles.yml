@@ -1,0 +1,11 @@
+open_quant_kit_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      user: "{{ env_var('POSTGRES_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'password') }}"
+      port: "{{ env_var('POSTGRES_PORT', 5432) | int }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'open_quant_kit_db') }}"
+      schema: "public"

@@ -5,12 +5,18 @@
 help: ## shows the list of commands
 	@perl -nle'print $& if m{^[a-zA-Z_-]+:.*?## .*$$}' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
-run: ## launch notebook using local venv
-	./init.sh
+build: ## builds docker image
+	docker compose build
 
-compose: ## executes the notebook on docker
-	docker compose -f local.yml up --build
+stop: ## stops all docker containers
+	docker compose stop
 
-test: ## run tests
-	docker compose -f local.yml run --remove-orphans marimo py.test -vv --cache-clear
+postgres: ## runs postgres locally
+	docker compose up --build -d postgres
 
+drop-db: stop ## drop the local database content
+	docker compose -f local.yml down && \
+	docker volume rm open_quant_kit_postgres_data open_quant_kit_postgres_data_backups
+
+dagster: ## runs dagster
+	docker compose up --build --remove-orphans dagster

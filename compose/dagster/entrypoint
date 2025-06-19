@@ -1,0 +1,48 @@
+#!/bin/bash
+set -o pipefail
+set -o nounset
+
+# Default to 'postgres' if POSTGRES_USER is not set
+: "${POSTGRES_USER:=postgres}"
+
+# Set DATABASE_URL for dbt
+export POSTGRES_DB_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+
+export POSTGRES_DAGSTER_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DAGSTER_DB}"
+
+# Wait for PostgreSQL to become available
+echo "Waiting for PostgreSQL to become available..."
+until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" > /dev/null 2>&1; do
+    echo "PostgreSQL is unavailable - sleeping..." >&2
+    sleep 1
+done
+echo "PostgreSQL is available." >&2
+
+# Create a database if it doesn't exist
+create_database() {
+    local db_name=$1
+    echo "Checking if database '$db_name' exists..." >&2
+
+    local exists
+    exists=$(PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -p "$POSTGRES_PORT" -tAc "SELECT 1 FROM pg_database WHERE datname = '$db_name';")
+
+    if [[ "$exists" == "1" ]]; then
+        echo "Database '$db_name' already exists." >&2
+    else
+        echo "Creating database '$db_name'..." >&2
+        PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -p "$POSTGRES_PORT" -c "CREATE DATABASE $db_name;" postgres
+        echo "Database '$db_name' created." >&2
+    fi
+}
+
+# Ensure Dagster and dbt databases exist
+create_database "$POSTGRES_DB"
+create_database "$POSTGRES_DAGSTER_DB"
+
+# Generate dagster.yaml from template
+echo "Generating dagster.yaml from template..."
+envsubst < /app/dagster/dagster.template.yaml > /app/dagster/dagster.yaml
+echo "dagster.yaml generated successfully." >&2
+
+# Run passed command
+exec "$@"

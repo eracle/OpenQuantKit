@@ -1,0 +1,34 @@
+volumes:
+  open_quant_kit_postgres_data: {}
+  open_quant_kit_postgres_data_backups: {}
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/postgres/Dockerfile
+    volumes:
+      - open_quant_kit_postgres_data:/var/lib/postgresql/data
+      - open_quant_kit_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.postgres
+    ports:
+      - "5432:5432"
+
+  dagster:
+    build:
+      context: .
+      dockerfile: compose/dagster/Dockerfile
+    depends_on:
+      - postgres
+    env_file:
+      - ./.envs/.postgres
+    ports:
+      - "4000:4000"
+    command: /start
+    volumes:
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+      - .:/app/
+      - ./dagster/dbt:/app/dagster/dbt
+    init: true
+

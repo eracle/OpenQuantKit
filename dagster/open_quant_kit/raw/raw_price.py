@@ -7,7 +7,7 @@ import yfinance as yf
 from pandas.tseries.offsets import BDay
 from tqdm import tqdm
 
-from .dim_ticker import TICKER_CSV_PATH
+from dagster.open_quant_kit.dim.dim_ticker import TICKER_CSV_PATH
 
 DATA_DIR = "data/raw_price/"
 
