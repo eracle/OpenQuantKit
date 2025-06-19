@@ -3,3 +3,11 @@ config.py
 data/
 tickers.duckdb
 __pycache__/
+/dagster/dagster.yaml
+/dagster/dbt/dbt_packages/dbt_utils/
+
+/dagster/dbt/logs
+/dagster/dbt/target
+/dagster/dbt/package-lock.yml
+/dagster/dagster.yaml
+/dagster/.telemetry
