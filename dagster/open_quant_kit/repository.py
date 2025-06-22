@@ -1,5 +1,7 @@
 # dagster/open_quant_kit/repository.py
 from dagster import Definitions
+from .assets import assets
+from .dbt import dbt_resource
 
 from .jobs import jobs
 from .resources import dbt_postgres
@@ -7,10 +9,6 @@ from .resources import dbt_postgres
 from .schedules import schedules
 
 
-# List of assets
-assets = [
-
-]
 
 # Define assets, jobs, schedules, etc.
 defs = Definitions(
@@ -18,6 +16,7 @@ defs = Definitions(
     jobs=jobs,
     schedules=schedules,
     resources={
+        "dbt": dbt_resource,
         "dbt_postgres": dbt_postgres,
     },
 )
