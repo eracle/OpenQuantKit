@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: market_data
+    schema: public
+    tables:
+      - name: raw_price
+        description: "Raw price data from Yahoo Finance ingested by Dagster. One row per (ticker, date)."
+        meta:
+          dagster:
+            asset_key: ["raw_price"]
+        columns:
+          - name: ticker
+            description: "Stock or ETF ticker symbol"
+          - name: date
+            description: "The trading day for which the price was recorded"
+            tests:
+              - not_null
+          - name: close
+            description: "Adjusted closing price"
+            tests:
+              - not_null

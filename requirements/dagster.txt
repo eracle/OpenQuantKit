@@ -7,9 +7,9 @@ dbt-core
 dbt-postgres
 dagster-dbt
 
-# duckbd
-dbt-duckdb
-dagster-duckdb
-
 # postgres
 dagster-postgres
+
+# python
+pandas
+yfinance
