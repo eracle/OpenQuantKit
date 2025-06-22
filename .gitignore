@@ -11,3 +11,8 @@ __pycache__/
 /dagster/dbt/package-lock.yml
 /dagster/dagster.yaml
 /dagster/.telemetry
+/dagster/.logs_queue/
+/dagster/.nux/
+/dagster/.telemetry/
+/dagster/logs/
+/dagster/storage/
