@@ -4,8 +4,7 @@ from datetime import timedelta
 import pandas as pd
 import yfinance as yf
 from pandas.tseries.offsets import BDay
-from sqlalchemy import create_engine
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from tqdm import tqdm
 
 from dagster import asset, AssetDep, AssetExecutionContext
@@ -18,16 +17,18 @@ def ensure_raw_price_schema(engine) -> None:
             CREATE TABLE IF NOT EXISTS raw_price (
                 ticker TEXT NOT NULL,
                 date DATE NOT NULL,
-                close DOUBLE PRECISION NOT NULL,
+                open DOUBLE PRECISION,
+                high DOUBLE PRECISION,
+                low DOUBLE PRECISION,
+                close DOUBLE PRECISION,
+                adj_close DOUBLE PRECISION,
+                volume BIGINT,
                 PRIMARY KEY (ticker, date)
             );
         """))
-        conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_raw_price_date ON raw_price(date);
-        """))
-        conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_raw_price_ticker ON raw_price(ticker);
-        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_raw_price_date ON raw_price(date);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_raw_price_ticker ON raw_price(ticker);"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_raw_price_ticker_date ON raw_price(ticker, date);"))
 
 
 def get_safe_lag_date() -> pd.Timestamp:
@@ -51,18 +52,24 @@ def get_ticker_max_date_pg(engine, ticker: str) -> pd.Timestamp | None:
         return None
 
 
-def upsert_price_data_pg(engine, df: pd.DataFrame) -> None:
-    """Insert price data using Pandas (assumes table has PK)."""
+def upsert_price_data_pg(engine, df: pd.DataFrame) -> int:
+    """Insert price data using Pandas with primary key constraint to avoid duplicates."""
+    if df.empty:
+        return 0
+
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.date
+    df["adj_close"] = df["adj_close"].astype(float)  # force float in case of None
+
     try:
         df.to_sql("raw_price", con=engine, if_exists="append", index=False, method="multi")
+        return len(df)
     except Exception as e:
-        print("Error writing to raw_price:", e)
-        raise
+        print(f"Error writing to raw_price: {e}")
+        return 0
 
 
-def update_ticker_pg(engine, ticker: str) -> pd.Timestamp | None:
+def update_ticker_pg(engine, ticker: str) -> tuple[pd.Timestamp | None, int]:
     """Download and update price data for one ticker."""
     end_date = get_safe_lag_date()
     start_date = None
@@ -70,12 +77,12 @@ def update_ticker_pg(engine, ticker: str) -> pd.Timestamp | None:
     max_date = get_ticker_max_date_pg(engine, ticker)
     if max_date and max_date >= end_date:
         print(f"{ticker}: Up to date ({max_date.date()})")
-        return max_date
+        return max_date, 0
     elif max_date:
         start_date = max_date + timedelta(days=1)
         if start_date > end_date:
             print(f"{ticker}: Nothing to fetch")
-            return max_date
+            return max_date, 0
 
     try:
         df = yf.download(
@@ -89,24 +96,72 @@ def update_ticker_pg(engine, ticker: str) -> pd.Timestamp | None:
         )
     except Exception as e:
         print(f"{ticker}: Download error - {e}")
-        return None
+        return None, 0
 
     if df.empty:
         print(f"{ticker}: No data")
-        return None
+        return None, 0
 
     df = df.reset_index()
     df = df.rename(columns={col: col.lower() for col in df.columns})
     if "date" not in df.columns or "close" not in df.columns:
-        print(f"{ticker}: Missing required columns")
-        return None
+        print(f"{ticker}: Missing required base columns")
+        return None, 0
+
+    # Define required and optional columns
+    required_cols = {"open", "high", "low", "close", "volume"}
+    optional_cols = {"adj close"}
+
+    available_cols = set(df.columns)
+    missing_required = required_cols - available_cols
+    if missing_required:
+        print(f"{ticker}: Missing required columns {missing_required}, skipping. Available columns: {sorted(available_cols)}")
+        return None, 0
+
+    # Fill missing optional columns with None
+    for col in optional_cols:
+        if col not in df.columns:
+            df[col] = None
 
     df["ticker"] = ticker
-    df = df[["ticker", "date", "close"]]
-    upsert_price_data_pg(engine, df)
+    df = df[["ticker", "date", "open", "high", "low", "close", "adj close", "volume"]]
+    df.rename(columns={"adj close": "adj_close"}, inplace=True)
 
-    print(f"{ticker}: Updated to {df['date'].max().date()}")
-    return df["date"].max()
+    row_count = upsert_price_data_pg(engine, df)
+    print(f"{ticker}: Updated to {df['date'].max().date()} - Rows inserted: {row_count}")
+    return df["date"].max(), row_count
+
+
+def run_raw_price_ingestion(engine, logger=print) -> int:
+    """Core logic to ingest price data for all tickers."""
+    ensure_raw_price_schema(engine)
+
+    logger("[INFO] Reading tickers from dim_ticker")
+    try:
+        tickers_df = pd.read_sql("SELECT symbol FROM dim_ticker", con=engine)
+        tickers = tickers_df["symbol"].dropna().unique().tolist()
+    except Exception as e:
+        logger(f"[ERROR] Failed to read dim_ticker: {e}")
+        raise
+
+    logger(f"[INFO] Updating {len(tickers)} tickers")
+
+    total_inserted = 0
+    skipped_tickers = []
+
+    for ticker in tqdm(tickers, desc="Updating prices"):
+        _, inserted = update_ticker_pg(engine, ticker)
+        total_inserted += inserted
+        if inserted == 0:
+            skipped_tickers.append(ticker)
+
+    logger(f"[INFO] Ingestion completed. Total rows inserted: {total_inserted}")
+    logger(f"[INFO] Skipped tickers: {len(skipped_tickers)}")
+
+    if skipped_tickers:
+        logger(f"[INFO] First 10 skipped tickers: {skipped_tickers[:10]}")
+
+    return total_inserted
 
 
 @asset(
@@ -115,52 +170,17 @@ def update_ticker_pg(engine, ticker: str) -> pd.Timestamp | None:
     deps=[AssetDep("dim_ticker")],
 )
 def raw_price(context: AssetExecutionContext) -> None:
-    """
-    Dagster asset that ingests price data from Yahoo Finance
-    into the raw_price Postgres table.
-    """
+    """Dagster asset that wraps raw price ingestion."""
     engine = context.resources.dbt_postgres
-
-    context.log.info("Ensuring raw_price table and indexes exist")
-    ensure_raw_price_schema(engine)
-
-    context.log.info("Reading tickers from dim_ticker")
-    try:
-        tickers_df = pd.read_sql("SELECT symbol FROM dim_ticker", con=engine)
-        tickers = tickers_df["symbol"].dropna().unique().tolist()
-    except Exception as e:
-        context.log.error(f"Failed to read dim_ticker: {e}")
-        raise
-
-    context.log.info(f"Updating {len(tickers)} tickers")
-    for ticker in tqdm(tickers, desc="Updating prices"):
-        update_ticker_pg(engine, ticker)
-
-    context.log.info("raw_price asset completed successfully")
+    inserted = run_raw_price_ingestion(engine, logger=context.log.info)
+    context.log.info(f"raw_price asset completed successfully. Inserted: {inserted}")
 
 
-
-
-
+# CLI entry point
 if __name__ == "__main__":
-    class DummyLog:
-        def info(self, msg): print("[INFO]", msg)
-
-        def error(self, msg): print("[ERROR]", msg)
-
-
-    class DummyContext:
-        def __init__(self, engine):
-            self.resources = {'dbt_postgres': engine}
-            self.log = DummyLog()
-
-
-    # Set this to your local Postgres connection string or use .env
-    DATABASE_URL = os.getenv('POSTGRES_DB_URL').replace("postgres://", "postgresql://")
+    DATABASE_URL = os.getenv('POSTGRES_DB_URL', '').replace("postgres://", "postgresql://")
+    if not DATABASE_URL:
+        raise ValueError("POSTGRES_DB_URL environment variable not set")
 
     engine = create_engine(DATABASE_URL)
-
-    context = DummyContext(engine)
-
-    # Call the Dagster asset directly
-    raw_price(context)
+    run_raw_price_ingestion(engine)
