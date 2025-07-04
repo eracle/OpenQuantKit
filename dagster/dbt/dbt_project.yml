@@ -10,3 +10,7 @@ test-paths: [ "tests" ]
 seed-paths: [ "seeds" ]
 macro-paths: [ "macros" ]
 snapshot-paths: [ "snapshots" ]
+
+models:
+  open_quant_kit_pipeline:
+    +materialized: table

@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: fct_ticker_data_quality
+    description: >
+      Metrics that evaluate the quality and completeness of raw price data per ticker.
+      Includes information about gaps, volatility, weekday coverage, and recent data availability.
+    columns:
+      - name: ticker
+        description: Stock or ETF ticker symbol
+        tests:
+          - not_null
+          - unique
+
+      - name: first_date
+        description: Earliest date in the price history
+
+      - name: last_date
+        description: Most recent date in the price history
+
+      - name: data_duration_days
+        description: Number of days between first and last date (inclusive)
+
+      - name: num_data_points
+        description: Number of price records available for this ticker
+
+      - name: completeness_ratio
+        description: Proportion of available data points to total days in range
+
+      - name: largest_gap_days
+        description: Size of the largest date gap (in calendar days)
+
+      - name: num_gaps_gt_3_days
+        description: Number of gaps larger than 3 days
+
+      - name: num_gaps_gt_5_days
+        description: Number of gaps larger than 5 days
+
+      - name: std_close
+        description: Standard deviation of the close price
+
+      - name: num_zero_close
+        description: Number of days where close price was 0 or nearly 0
+
+      - name: weekday_coverage
+        description: Share of weekdays with data present
+
+      - name: has_recent_data
+        description: Whether the latest data includes the most recent business day
+
+      - name: num_duplicate_dates
+        description: Number of duplicate dates found in the raw data

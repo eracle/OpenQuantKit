@@ -23,3 +23,6 @@ dagster: ## runs dagster
 
 raw-price: ## downloads raw prices, needs tickers loaded in the db
 	docker compose run --rm dagster python -m open_quant_kit.raw.raw_price
+
+data-quality: ## runs dbt data quality
+	docker compose run --rm dagster dbt build --select fct_ticker_data_quality

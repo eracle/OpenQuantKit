@@ -1,119 +1,112 @@
 # 🧠 OpenQuantKit
 
-The open-source data pipeline toolkit for modern quant research.
-Clean data. Modular pipelines. Real financial signals.
+The open-source data pipeline toolkit for modern quant research.  
+**Clean data. Modular pipelines. Real financial signals.**
 
-📈 What is Open Quant Kit?
-Open Quant Kit (OQK) is an open-source, modular data pipeline framework designed for developers, analysts, and researchers who want to work with financial data the right way.
+---
 
-It connects real-time and historical market data to a clean, extensible analytics stack using tools like Dagster, dbt, and Python. From ingestion to transformation to dashboard-ready metrics — everything is reproducible, inspectable, and built for scale.
+## 📈 What is OpenQuantKit?
 
-🔧 Features
-✅ Modular pipelines powered by Dagster
+**OpenQuantKit (OQK)** is a modular data pipeline framework designed for developers, analysts, and researchers working with financial data.  
+It connects historical and real-time market data to a clean, scalable analytics stack — using **Dagster**, **dbt**, and **PostgreSQL**.
 
-✅ Clean transformations using dbt
+From ingestion to transformation to dashboard-ready metrics — everything is reproducible, inspectable, and cloud-ready.
 
-✅ Support for price data, earnings, filings, and more
+---
 
-✅ Easy local setup with DuckDB / CSV
+## 🔧 Features
 
-✅ Plug-in ready architecture for indicators, signals, and strategies
+✅ Modular pipelines powered by **Dagster**  
+✅ Clean transformations using **dbt**  
+✅ PostgreSQL-first architecture — no DuckDB  
+✅ Fast ingestion from Yahoo Finance via `yfinance`  
+✅ Built-in quality metrics for tickers  
+✅ Plug-in ready for signals, strategies, and models  
+✅ Ready for local or cloud deployment  
+✅ Works with **Streamlit**, **Jupyter**, and **backtesting** frameworks
 
-✅ Compatible with Streamlit, Jupyter, and backtesting frameworks
+---
 
-✅ Ready for cloud or local deployment
+## 💡 Why Use It?
 
-💡 Why Use It?
-Most quant projects start with messy CSVs and brittle scripts.
-Open Quant Kit gives you a clean slate, structured flow, and modular power — without the enterprise price tag or bloat.
+Most quant research starts with messy CSVs and ad-hoc scripts.
+
+**OpenQuantKit** gives you:
+
+- A clean, SQL-based foundation
+- Transparent, testable data transformations
+- Production-grade pipelines
+- No vendor lock-in
 
 Whether you're:
 
-🧑‍💻 Building your own quant system
+- 🧑‍💻 Building a personal quant system  
+- 🎓 Working on a research thesis  
+- 🧠 Experimenting with alpha factors  
+- 🚀 Launching a new fintech prototype  
 
-🎓 Working on a finance/data science thesis
-
-🧠 Testing new indicators
-
-🚀 Launching a new fintech tool
-
-...OQK gives you a real data foundation with zero vendor lock-in.
+...OQK gives you structure without sacrificing flexibility.
 
 ---
 
-## 🚀 Features
+## ⚡ Quickstart (PostgreSQL)
 
-1. **Input Tickers**
-   - Define custom ticker lists based on sectors, indices, or personal criteria.
+### 1. Build and run the stack
 
-2. **Efficient Data Loading**
-   - Automatically fetch and cache only the most recent stock data.
-   - Prevents redundant downloads to optimize performance.
+```bash
+make build        # Build containers
+make postgres     # Start PostgreSQL
+make dagster      # Start Dagster + dbt
+```
 
-3. **Data Validation**
-   - Detect and report missing or anomalous values.
-   - Ensure a sufficient historical window for accurate analysis.
+### 2. Ingest raw price data
 
-4. **Data Fixing**
-   - Interpolate missing data points.
-   - Identify and correct outliers.
-   - Optionally drop unreliable tickers.
+To fetch all available price data from Yahoo Finance and store in PostgreSQL:
 
-5. **Hyperparameter Search & Tuning**
-   - Perform automated hyperparameter optimization (e.g., Prophet).
-   - Store configurations and results for auditability and reuse.
+```bash
+docker compose run --rm dagster python -m open_quant_kit.raw.raw_price
+```
 
-6. **Final Model Training**
-   - Train forecasting models on cleaned, validated datasets.
+This reads tickers from `dim_ticker`, downloads full price history, and stores it in the `raw_price` table.
 
-7. **Forecasting**
-   - Use Prophet to forecast future stock behavior.
-   - Identify stocks with a low probability of underperforming over a defined horizon (e.g., 2 years).
+### 3. Run dbt models
 
-8. **Secondary Ticker Selection & Portfolio Construction**
-   - **Step 1: Forecast-Guided Selection**  
-     Use probabilistic forecasts to identify a shortlist of "winning" stocks—those with high confidence in outperforming their current price over the investment horizon.
-   - **Step 2: Greedy Portfolio Expansion**  
-     Apply a **greedy algorithm** to iteratively build a diversified portfolio.  
-     At each step, add the stock that most reduces overall portfolio variance.  
-     Favor assets that are negatively correlated (or weakly correlated) with existing holdings.
-   - **Step 3: Hierarchical Portfolio Construction**  
-     Build the portfolio bottom-up, balancing risk and return.  
-     Prioritize anti-correlated assets to increase robustness and minimize drawdown potential.
+To compute data quality metrics:
 
-9. **Portfolio Balancing**
-   - Allocate weights based on model insights and risk minimization strategies.
+```bash
+docker compose run --rm dagster dbt build --select fct_ticker_data_quality
+```
 
-10. **Portfolio Difference Analysis**
-    - Compare current allocations to target allocations.
-    - Identify required trades to rebalance effectively.
-
-11. **Trade Logging**
-    - Maintain a history of executed trades and portfolio states for backtesting and review.
+The model will create or update a table with per-ticker statistics such as gaps, duplicates, volatility, and completeness.
 
 ---
 
-## ⚡ Quickstart
+## 📚 Components Overview
 
-Install the dependencies and update price data locally:
+### 🔄 Ingestion
+- `raw_price.py` — Fetches historical price data from Yahoo Finance
+- Modular, resumable, and ticker-aware
 
-```bash
-pip install -r requirements.txt
-python -m oqk.update_data
-```
+### 📊 Transformation
+- `fct_ticker_data_quality.sql` — dbt model computing:
+  - Data duration and coverage
+  - Largest gaps and completeness
+  - Volatility and recentness checks
 
-Or run the same command inside Docker:
+### 🛠️ Resources
+- Dagster orchestrates asset materialization and scheduling
+- dbt handles transformations declaratively in SQL
+- PostgreSQL stores all raw + modeled data
 
-```bash
-make compose
-```
+---
 
-This builds the container and runs the data update script.
+## 🤝 Contributing
 
-## \ud83d\udd2e Tests
+PRs, issues, and ideas welcome.  
+This project is early-stage and evolving. Feedback makes it better!
 
-Run the unit tests with:
+---
 
-```bash
-make test
-```
+## 📄 License
+
+MIT

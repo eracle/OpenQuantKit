@@ -5,6 +5,9 @@ FROM python:3.12.10-slim-bookworm
 ENV DAGSTER_HOME=/app/dagster/
 WORKDIR $DAGSTER_HOME
 
+ENV DBT_PROJECT_DIR=${DAGSTER_HOME}dbt
+ENV DBT_PROFILES_DIR=${DBT_PROJECT_DIR}/config
+
 # Install required system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libpq-dev git g++ cmake libssl-dev wget gettext \

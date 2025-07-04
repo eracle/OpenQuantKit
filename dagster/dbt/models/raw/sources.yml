@@ -12,11 +12,30 @@ sources:
         columns:
           - name: ticker
             description: "Stock or ETF ticker symbol"
+            tests:
+              - not_null
+
           - name: date
             description: "The trading day for which the price was recorded"
             tests:
               - not_null
+
+          - name: open
+            description: "Opening price of the day"
+
+          - name: high
+            description: "Highest price during the trading day"
+
+          - name: low
+            description: "Lowest price during the trading day"
+
           - name: close
-            description: "Adjusted closing price"
+            description: "Closing price (adjusted if specified)"
             tests:
               - not_null
+
+          - name: volume
+            description: "Trading volume (number of shares or units traded)"
+
+          - name: adj_close
+            description: "Adjusted close (may be null if not used)"
