@@ -21,7 +21,6 @@ def ensure_raw_price_schema(engine) -> None:
                 high DOUBLE PRECISION,
                 low DOUBLE PRECISION,
                 close DOUBLE PRECISION,
-                adj_close DOUBLE PRECISION,
                 volume BIGINT,
                 PRIMARY KEY (ticker, date)
             );
@@ -59,7 +58,6 @@ def upsert_price_data_pg(engine, df: pd.DataFrame) -> int:
 
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.date
-    df["adj_close"] = df["adj_close"].astype(float)  # force float in case of None
 
     try:
         df.to_sql("raw_price", con=engine, if_exists="append", index=False, method="multi")
@@ -70,7 +68,7 @@ def upsert_price_data_pg(engine, df: pd.DataFrame) -> int:
 
 
 def update_ticker_pg(engine, ticker: str) -> tuple[pd.Timestamp | None, int]:
-    """Download and update price data for one ticker."""
+    """Download and update price data for one ticker with full history support."""
     end_date = get_safe_lag_date()
     start_date = None
 
@@ -84,16 +82,23 @@ def update_ticker_pg(engine, ticker: str) -> tuple[pd.Timestamp | None, int]:
             print(f"{ticker}: Nothing to fetch")
             return max_date, 0
 
+    # Build download parameters
+    download_kwargs = {
+        "tickers": ticker,
+        "end": end_date + timedelta(days=1),
+        "progress": False,
+        "auto_adjust": True,
+        "threads": False,
+        "multi_level_index": False,
+    }
+
+    if start_date is None:
+        download_kwargs["period"] = "max"
+    else:
+        download_kwargs["start"] = start_date
+
     try:
-        df = yf.download(
-            ticker,
-            start=start_date,
-            end=end_date + timedelta(days=1),
-            progress=False,
-            auto_adjust=True,
-            threads=False,
-            multi_level_index=False,
-        )
+        df = yf.download(**download_kwargs)
     except Exception as e:
         print(f"{ticker}: Download error - {e}")
         return None, 0
@@ -104,31 +109,24 @@ def update_ticker_pg(engine, ticker: str) -> tuple[pd.Timestamp | None, int]:
 
     df = df.reset_index()
     df = df.rename(columns={col: col.lower() for col in df.columns})
-    if "date" not in df.columns or "close" not in df.columns:
-        print(f"{ticker}: Missing required base columns")
-        return None, 0
 
-    # Define required and optional columns
-    required_cols = {"open", "high", "low", "close", "volume"}
-    optional_cols = {"adj close"}
-
+    required_cols = {"open", "high", "low", "close", "volume", "date"}
     available_cols = set(df.columns)
     missing_required = required_cols - available_cols
     if missing_required:
-        print(f"{ticker}: Missing required columns {missing_required}, skipping. Available columns: {sorted(available_cols)}")
+        print(
+            f"{ticker}: Missing required columns {missing_required}, skipping. Available columns: {sorted(available_cols)}")
         return None, 0
 
-    # Fill missing optional columns with None
-    for col in optional_cols:
-        if col not in df.columns:
-            df[col] = None
-
     df["ticker"] = ticker
-    df = df[["ticker", "date", "open", "high", "low", "close", "adj close", "volume"]]
-    df.rename(columns={"adj close": "adj_close"}, inplace=True)
+    df = df[["ticker", "date", "open", "high", "low", "close", "volume"]]
 
     row_count = upsert_price_data_pg(engine, df)
-    print(f"{ticker}: Updated to {df['date'].max().date()} - Rows inserted: {row_count}")
+
+    min_date = df["date"].min().date()
+    max_date = df["date"].max().date()
+    print(f"{ticker}: Inserted {row_count} rows — Range: {min_date} → {max_date}")
+
     return df["date"].max(), row_count
 
 

@@ -20,3 +20,6 @@ drop-db: stop ## drop the local database content
 
 dagster: ## runs dagster
 	docker compose up --build --remove-orphans dagster
+
+raw-price: ## downloads raw prices, needs tickers loaded in the db
+	docker compose run --rm dagster python -m open_quant_kit.raw.raw_price
