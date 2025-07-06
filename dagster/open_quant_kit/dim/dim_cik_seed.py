@@ -1,8 +1,10 @@
-import pandas as pd
+import csv
 import json
 
+import pandas as pd
+
 # Load CIK mapping from a local JSON file
-with open("/data/company_tickers.json", "r") as f:
+with open("./data/company_tickers.json", "r") as f:
     data = json.load(f)
 
 # Convert to DataFrame
@@ -18,6 +20,6 @@ df = pd.DataFrame(records)
 
 # Save as CSV for dbt seed
 csv_path = "./dagster/dbt/seeds/dim_cik.csv"
-df.to_csv(csv_path, index=False)
+df.to_csv(csv_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
 
 print(f"Saved CSV to: {csv_path}")

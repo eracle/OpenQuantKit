@@ -39,3 +39,55 @@ sources:
 
           - name: adj_close
             description: "Adjusted close (may be null if not used)"
+
+  - name: sec_data
+    schema: public
+    tables:
+      - name: raw_filing_index
+        description: "Index of SEC filings downloaded from EDGAR. One row per filing reference."
+        meta:
+          dagster:
+            asset_key: ["raw_filing_index"]
+        columns:
+          - name: cik
+            description: "Central Index Key (CIK) assigned by the SEC"
+            tests: [not_null]
+          - name: company_name
+            description: "Company name as listed in the filing"
+          - name: form_type
+            description: "SEC form type (e.g., 10-K, 10-Q, etc.)"
+            tests: [not_null]
+          - name: date_filed
+            description: "Date the filing was submitted"
+            tests: [not_null]
+          - name: filename
+            description: "Relative URL path to the full filing text file"
+            tests: [not_null]
+          - name: year
+            description: "Year the filing was made"
+          - name: quarter
+            description: "Quarter (1–4) the filing was made"
+
+      - name: raw_filing
+        description: "Raw text content of downloaded SEC filings. One row per filing."
+        meta:
+          dagster:
+            asset_key: ["raw_filing"]
+        columns:
+          - name: ticker
+            description: "Mapped stock ticker symbol"
+            tests: [not_null]
+          - name: cik
+            description: "CIK of the filing company"
+            tests: [not_null]
+          - name: accession
+            description: "SEC accession number (unique per filing)"
+            tests: [not_null, unique]
+          - name: form_type
+            description: "Type of form (e.g., 10-K)"
+          - name: filing_date
+            description: "The date the filing was submitted"
+          - name: content
+            description: "Raw filing content as plain text"
+          - name: downloaded_at
+            description: "Timestamp when the filing was downloaded"

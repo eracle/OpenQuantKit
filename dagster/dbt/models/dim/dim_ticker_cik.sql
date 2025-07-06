@@ -12,7 +12,7 @@ dim_cik_clean as (
         lower(trim(ticker)) as ticker,
         cast(cik as text) as cik,  -- ensure CIK is text with leading zeros
         title
-    from {{ ref('dim_cik') }}
+    from {{ source('sec_data', 'dim_cik') }}
 )
 
 -- Join the two on normalized ticker

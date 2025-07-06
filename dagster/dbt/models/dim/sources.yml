@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: sec_data
+    schema: public
+    tables:
+      - name: dim_cik
+        description: >
+          Mapping between SEC Central Index Key (CIK) and public equity tickers.
+          This table is ingested via Dagster from the official SEC company_tickers.json source.
+        meta:
+          dagster:
+            asset_key: ["dim_cik"]
+        columns:
+          - name: ticker
+            description: "Public stock ticker (e.g., AAPL, MSFT)"
+            tests:
+              - not_null
+          - name: cik
+            description: "10-digit zero-padded SEC CIK code as text"
+            tests:
+              - not_null
+          - name: title
+            description: "Registered name of the company/entity"
