@@ -107,6 +107,3 @@ This project is early-stage and evolving. Feedback makes it better!
 
 ---
 
-## 📄 License
-
-MIT
